@@ -2,7 +2,7 @@
 
 A [Prism](https://github.com/prism-php/prism) provider for AWS Bedrock in Laravel applications.
 
-This is a maintained fork of [prism-php/bedrock](https://github.com/prism-php/bedrock) with additional features including streaming support, image generation, thinking/reasoning content, and cache token tracking.
+This is a maintained fork of [prism-php/bedrock](https://github.com/prism-php/bedrock) with additional features not yet available upstream, including streaming support, image generation, thinking/reasoning content, cache token tracking, native structured output, strict tool schemas, and citation support.
 
 ## Installation
 
@@ -124,15 +124,15 @@ Prism Bedrock supports three of those API schemas:
 
 Each schema supports different capabilities:
 
-| Schema | Text | Streaming | Structured | Embeddings |
-|--------|:----:|:---------:|:----------:|:----------:|
-| Converse | ✅ | ✅ | ✅ | ❌ |
-| Anthropic | ✅ | ✅ | ✅ | ❌ |
-| Cohere | ❌ | ❌ | ❌ | ✅ |
+| Schema | Text | Streaming | Structured | Embeddings | Citations | Strict Tools |
+|--------|:----:|:---------:|:----------:|:----------:|:---------:|:------------:|
+| Converse | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Anthropic | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Cohere | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
 
 \* A unified interface for multiple providers. See [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html) for a list of supported models.
 
-\*\* The Converse schema does not support Anthropic's native features (e.g. PDF vision analysis). This schema uses Anthropic's native schema and therefore allows use of Anthropic native features. Please note however that Bedrock's Anthropic schema does not yet have feature parity with Anthropic. Notably it does not support documents or citations, and prompt caching support may be limited to specific Claude models. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html) for the latest supported models. To use documents with Anthropic's models, use them via the Converse schema (though note that this not the same as using Anthropic's PDF vision directly).
+\*\* The Converse schema does not support Anthropic's native features (e.g. PDF vision analysis). This schema uses Anthropic's native schema and therefore allows use of Anthropic native features. Please note however that Bedrock's Anthropic schema does not yet have feature parity with Anthropic. Notably it does not support documents, and prompt caching support may be limited to specific Claude models. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html) for the latest supported models. To use documents with Anthropic's models, use them via the Converse schema (though note that this not the same as using Anthropic's PDF vision directly).
 
 ## Auto-resolution of API schemas
 
@@ -177,29 +177,90 @@ $response = Prism::text()
 > [!TIP]
 > Anthropic currently supports a cacheType of "ephemeral". Converse currently supports a cacheType of "default". It is possible that Anthropic and/or AWS may add additional types in the future.
 
-## Structured Adapted Support
+## Structured Output
 
-Both Anthropic and Converse Schemas do not support a native structured format. 
-
-Prism Bedrock has adapted support by appending a prompt asking the model to a response conforming to the schema you provide.
-
-The performance of that prompt may vary by model. You can override it using `withProviderOptions()`:
+By default, `Prism::structured()` uses native structured output via the API's `outputConfig` / `output_config` parameter. The schema is sent directly to the model, and the JSON response is parsed into the `structured` field automatically.
 
 ```php
 use Prism\Prism\Prism;
 use Clinically\PrismBedrock\Bedrock;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
 
+$response = Prism::structured()
+    ->withSchema($schema)
+    ->using(Bedrock::KEY, 'anthropic.claude-3-5-haiku-20241022-v1:0')
+    ->withPrompt('My prompt')
+    ->asStructured();
+
+$data = $response->structured; // Parsed array
+```
+
+To fall back to the previous prompt-based approach (appends a user message asking the model to respond with JSON), set `use_native_structured` to `false`:
+
+```php
 Prism::structured()
     ->withSchema($schema)
-    ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+    ->using(Bedrock::KEY, 'anthropic.claude-3-5-haiku-20241022-v1:0')
     ->withProviderOptions([
-        // Override the default message of "Respond with ONLY JSON (i.e. not in backticks or a code block, with NO CONTENT outside the JSON) that matches the following schema:"
-        'jsonModeMessage' => 'My custom message', 
+        'use_native_structured' => false,
+        // Optionally override the default prompt-based message:
+        'jsonModeMessage' => 'My custom message',
     ])
     ->withPrompt('My prompt')
     ->asStructured();
 ```
+
+## Strict Tool Schemas
+
+You can enforce strict input validation on tools by setting the `strict` provider option:
+
+```php
+use Prism\Prism\Facades\Tool;
+
+$tool = Tool::as('search')
+    ->for('Search the web')
+    ->withStringParameter('query', 'The search query')
+    ->withProviderOptions(['strict' => true])
+    ->using(fn (string $query): string => 'results...');
+```
+
+This adds `"strict": true` to the tool's input schema in the API payload (both Converse and Anthropic schemas).
+
+## Citations
+
+Citations can be enabled on document queries to get source references in the response. This is supported on the Converse schema (Anthropic schema does not yet support documents on Bedrock).
+
+```php
+use Prism\Prism\Prism;
+use Clinically\PrismBedrock\Bedrock;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+
+$response = Prism::text()
+    ->using(Bedrock::KEY, 'anthropic.claude-3-sonnet-20240229-v1:0')
+    ->withProviderOptions(['citations' => true])
+    ->withMessages([
+        new UserMessage(
+            content: 'What does this document say?',
+            additionalContent: [
+                Document::fromPath('path/to/document.pdf', 'My Document'),
+            ]
+        ),
+    ])
+    ->asText();
+
+// Citations are available in additionalContent
+$citations = $response->additionalContent['citations'] ?? [];
+
+foreach ($citations as $part) {
+    echo $part->outputText; // The model's text that references a source
+    foreach ($part->citations as $citation) {
+        echo $citation->sourceText;  // The cited text from the document
+        echo $citation->sourceTitle; // The document title
+    }
+}
+```
+
+You can also enable citations per-document via document provider options instead of at the request level.
 
 ## License
 

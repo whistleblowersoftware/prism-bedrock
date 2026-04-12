@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Converse;
 
+use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
 use Prism\Prism\Testing\TextStepFake;
@@ -304,6 +304,95 @@ it('maps converse options when set with providerOptions', function (): void {
         ->asText();
 
     $fake->assertRequest(fn (array $requests): mixed => expect($requests[0]->providerOptions())->toBe($providerOptions));
+});
+
+it('extracts citations from response when present', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/text-with-citations');
+
+    $response = Prism::text()
+        ->using('bedrock', 'amazon.nova-micro-v1:0')
+        ->withProviderOptions(['citations' => true])
+        ->withMessages([
+            new UserMessage(
+                content: 'What is the answer to life?',
+                additionalContent: [
+                    Document::fromPath('tests/Fixtures/document.md', 'The Answer To Life'),
+                ]
+            ),
+        ])
+        ->asText();
+
+    expect($response->additionalContent)->toHaveKey('citations');
+    expect($response->additionalContent['citations'])->toBeArray();
+    expect($response->additionalContent['citations'])->toHaveCount(2);
+    expect($response->additionalContent['citations'][0]->outputText)->toBe('The answer is 42.');
+    expect($response->additionalContent['citations'][0]->citations)->toHaveCount(1);
+    expect($response->additionalContent['citations'][0]->citations[0]->sourceText)->toBe('The answer to life is 42.');
+    expect($response->additionalContent['citations'][1]->outputText)->toBe(' This is according to the document.');
+    expect($response->additionalContent['citations'][1]->citations)->toHaveCount(0);
+});
+
+it('sends citationConfig on documents when citations are enabled', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/text-with-citations');
+
+    Prism::text()
+        ->using('bedrock', 'amazon.nova-micro-v1:0')
+        ->withProviderOptions(['citations' => true])
+        ->withMessages([
+            new UserMessage(
+                content: 'What is the answer to life?',
+                additionalContent: [
+                    Document::fromPath('tests/Fixtures/document.md', 'The Answer To Life'),
+                ]
+            ),
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+        $messages = $data['messages'] ?? [];
+        $userMessage = $messages[0] ?? [];
+        $content = $userMessage['content'] ?? [];
+
+        // Find the document content block
+        $documentBlock = collect($content)->first(fn ($block) => isset($block['document']));
+
+        expect($documentBlock)->not()->toBeNull();
+        expect($documentBlock['document'])->toHaveKey('citationConfig');
+        expect($documentBlock['document']['citationConfig']['type'])->toBe('DOCUMENT');
+
+        return true;
+    });
+});
+
+it('does not send citationConfig on documents when citations are not enabled', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/query-a-txt-document');
+
+    Prism::text()
+        ->using('bedrock', 'amazon.nova-micro-v1:0')
+        ->withMessages([
+            new UserMessage(
+                content: 'What is the answer to life?',
+                additionalContent: [
+                    Document::fromPath('tests/Fixtures/document.md', 'The Answer To Life'),
+                ]
+            ),
+        ])
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+        $messages = $data['messages'] ?? [];
+        $userMessage = $messages[0] ?? [];
+        $content = $userMessage['content'] ?? [];
+
+        $documentBlock = collect($content)->first(fn ($block) => isset($block['document']));
+
+        expect($documentBlock)->not()->toBeNull();
+        expect($documentBlock['document'])->not()->toHaveKey('citationConfig');
+
+        return true;
+    });
 });
 
 it('does not remove zero values from payload', function (): void {

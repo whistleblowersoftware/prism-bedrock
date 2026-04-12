@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Converse;
 
+use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Facades\Tool;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Structured\ResponseBuilder;
 use Prism\Prism\Testing\StructuredStepFake;
-use Prism\Prism\Facades\Tool;
 use Tests\Fixtures\FixtureResponse;
 
 it('returns structured output', function (): void {
@@ -249,6 +249,105 @@ it('includes tools in the request payload', function (): void {
         expect($data)->toHaveKey('toolConfig');
         expect($data['toolConfig']['tools'])->toHaveCount(1);
         expect($data['toolConfig']['tools'][0]['toolSpec']['name'])->toBe('weather');
+
+        return true;
+    });
+});
+
+it('sends outputConfig with native structured output by default', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/native-structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new StringSchema('game_time', 'The tigers game time'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'game_time', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions(['apiSchema' => BedrockSchema::Converse])
+        ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
+        ->withPrompt('What time is the tigers game today and should I wear a coat?')
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        expect($data)->toHaveKey('outputConfig');
+        expect($data['outputConfig']['textFormat']['type'])->toBe('json_schema');
+        expect($data['outputConfig']['textFormat']['structure']['jsonSchema'])->toHaveKey('schema');
+        expect($data['outputConfig']['textFormat']['structure']['jsonSchema'])->toHaveKey('name');
+
+        return true;
+    });
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured)->toHaveKeys(['weather', 'game_time', 'coat_required']);
+    expect($response->structured['coat_required'])->toBeFalse();
+});
+
+it('parses JSON into structured field with native structured output', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/native-structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+            new BooleanSchema('coat_required', 'whether a coat is required'),
+        ],
+        ['weather', 'coat_required']
+    );
+
+    $response = Prism::structured()
+        ->withSchema($schema)
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions(['apiSchema' => BedrockSchema::Converse])
+        ->withPrompt('What is the weather?')
+        ->asStructured();
+
+    expect($response->structured)->toBeArray();
+    expect($response->structured['weather'])->toBe('70º');
+    expect($response->structured['coat_required'])->toBeFalse();
+});
+
+it('falls back to prompt-based JSON mode when use_native_structured is false', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/structured');
+
+    $schema = new ObjectSchema(
+        'output',
+        'the output object',
+        [
+            new StringSchema('weather', 'The weather forecast'),
+        ],
+        ['weather']
+    );
+
+    Prism::structured()
+        ->withSchema($schema)
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions([
+            'apiSchema' => BedrockSchema::Converse,
+            'use_native_structured' => false,
+        ])
+        ->withPrompt('What is the weather?')
+        ->asStructured();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        expect($data)->not()->toHaveKey('outputConfig');
+
+        // Should have the JSON mode message appended somewhere in the messages
+        $messages = $data['messages'] ?? [];
+        $allText = json_encode($messages);
+        expect($allText)->toContain('Respond with ONLY JSON');
 
         return true;
     });

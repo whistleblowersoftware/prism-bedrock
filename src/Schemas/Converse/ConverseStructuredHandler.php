@@ -2,8 +2,6 @@
 
 namespace Clinically\PrismBedrock\Schemas\Converse;
 
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Collection;
 use Clinically\PrismBedrock\Contracts\BedrockStructuredHandler;
 use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsText;
 use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsThinking;
@@ -12,9 +10,12 @@ use Clinically\PrismBedrock\Schemas\Converse\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\MessageMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\ToolChoiceMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\ToolMap;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Structured\Request;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Structured\ResponseBuilder;
@@ -47,13 +48,13 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
     #[\Override]
     public function handle(Request $request): StructuredResponse
     {
-        if ($this->responseBuilder->steps->isEmpty()) {
+        if ($this->responseBuilder->steps->isEmpty() && ! $this->useNativeStructured($request)) {
             $this->appendMessageForJsonMode($request);
         }
 
         $this->sendRequest($request);
 
-        $this->prepareTempResponse();
+        $this->prepareTempResponse($request);
 
         $responseMessage = new AssistantMessage(
             content: $this->tempResponse->text,
@@ -74,6 +75,9 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
      */
     public static function buildPayload(Request $request, int $stepCount = 0): array
     {
+        $useNative = $request->providerOptions('use_native_structured') !== false
+            && $request->schema() !== null;
+
         return array_filter([
             'additionalModelRequestFields' => $request->providerOptions('additionalModelRequestFields'),
             'additionalModelResponseFieldPaths' => $request->providerOptions('additionalModelResponseFieldPaths'),
@@ -83,7 +87,21 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
                 'temperature' => $request->temperature(),
                 'topP' => $request->topP(),
             ], fn (mixed $value): bool => $value !== null),
-            'messages' => MessageMap::map($request->messages()),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
+            'outputConfig' => $useNative ? [
+                'textFormat' => [
+                    'type' => 'json_schema',
+                    'structure' => [
+                        'jsonSchema' => array_filter([
+                            'schema' => json_encode($request->schema()->toArray()),
+                            'name' => $request->schema()->name(),
+                            'description' => $request->schema() instanceof ObjectSchema
+                                ? $request->schema()->description
+                                : null,
+                        ], fn (mixed $value): bool => $value !== null),
+                    ],
+                ],
+            ] : null,
             'toolConfig' => $request->tools() === []
                 ? null
                 : array_filter([
@@ -109,14 +127,21 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
         }
     }
 
-    protected function prepareTempResponse(): void
+    protected function prepareTempResponse(?Request $request = null): void
     {
         $data = $this->httpResponse->json();
 
+        $text = $this->extractText($data);
+        $structured = [];
+
+        if ($request !== null && $this->useNativeStructured($request)) {
+            $structured = json_decode($text, associative: true) ?? [];
+        }
+
         $this->tempResponse = new StructuredResponse(
             steps: new Collection,
-            text: $this->extractText($data),
-            structured: [],
+            text: $text,
+            structured: $structured,
             finishReason: FinishReasonMap::map(data_get($data, 'stopReason')),
             toolCalls: $this->extractToolCalls($data),
             usage: new Usage(
@@ -174,6 +199,12 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
             toolCalls: $this->tempResponse->toolCalls,
             toolResults: $toolResults,
         ));
+    }
+
+    protected function useNativeStructured(Request $request): bool
+    {
+        return $request->providerOptions('use_native_structured') !== false
+            && $request->schema() !== null;
     }
 
     protected function appendMessageForJsonMode(Request $request): void

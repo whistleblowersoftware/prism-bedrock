@@ -13,10 +13,12 @@ class DocumentMapper extends ProviderMediaMapper
     /**
      * @param  Document  $media
      * @param  array<string, mixed>  $cacheControl
+     * @param  array<string, mixed>  $requestProviderOptions
      */
     public function __construct(
         public readonly Media $media,
-        public ?array $cacheControl = null
+        public ?array $cacheControl = null,
+        public array $requestProviderOptions = [],
     ) {}
 
     /**
@@ -24,12 +26,22 @@ class DocumentMapper extends ProviderMediaMapper
      */
     public function toPayload(): array
     {
+        $providerOptions = $this->media->providerOptions();
+
+        $citationsEnabled = data_get($this->requestProviderOptions, 'citations', data_get($providerOptions, 'citations', false));
+
+        $document = [
+            'format' => $this->media->mimeType() ? Mimes::tryFrom($this->media->mimeType())?->toExtension() : null,
+            'name' => $this->media->documentTitle(),
+            'source' => ['bytes' => $this->media->base64()],
+        ];
+
+        if ($citationsEnabled) {
+            $document['citationConfig'] = ['type' => 'DOCUMENT'];
+        }
+
         return [
-            'document' => [
-                'format' => $this->media->mimeType() ? Mimes::tryFrom($this->media->mimeType())?->toExtension() : null,
-                'name' => $this->media->documentTitle(),
-                'source' => ['bytes' => $this->media->base64()],
-            ],
+            'document' => $document,
         ];
     }
 

@@ -36,6 +36,32 @@ it('maps tools', function (): void {
     ]);
 });
 
+it('includes strict when provider option is set', function (): void {
+    $tool = (new Tool)
+        ->as('search')
+        ->for('Searching the web')
+        ->withStringParameter('query', 'the detailed search query')
+        ->withProviderOptions(['strict' => true])
+        ->using(fn (): string => '[Search results]');
+
+    $mapped = ToolMap::map([$tool]);
+
+    expect($mapped[0]['toolSpec']['inputSchema']['json'])->toHaveKey('strict');
+    expect($mapped[0]['toolSpec']['inputSchema']['json']['strict'])->toBeTrue();
+});
+
+it('does not include strict when provider option is not set', function (): void {
+    $tool = (new Tool)
+        ->as('search')
+        ->for('Searching the web')
+        ->withStringParameter('query', 'the detailed search query')
+        ->using(fn (): string => '[Search results]');
+
+    $mapped = ToolMap::map([$tool]);
+
+    expect($mapped[0]['toolSpec']['inputSchema']['json'])->not()->toHaveKey('strict');
+});
+
 it('maps parameterless tools with empty object properties', function (): void {
     $tool = (new Tool)
         ->as('get_time')

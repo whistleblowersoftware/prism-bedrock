@@ -2,8 +2,6 @@
 
 namespace Clinically\PrismBedrock\Schemas\Anthropic;
 
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Collection;
 use Clinically\PrismBedrock\Contracts\BedrockTextHandler;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsText;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsToolCalls;
@@ -11,9 +9,13 @@ use Clinically\PrismBedrock\Schemas\Anthropic\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\MessageMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolChoiceMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolMap;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Text\ResponseBuilder;
@@ -27,7 +29,7 @@ use Throwable;
 
 class AnthropicTextHandler extends BedrockTextHandler
 {
-    use CallsTools, ExtractsText, ExtractsToolCalls;
+    use CallsTools, ExtractsCitations, ExtractsText, ExtractsToolCalls;
 
     protected TextResponse $tempResponse;
 
@@ -71,7 +73,7 @@ class AnthropicTextHandler extends BedrockTextHandler
     {
         return array_filter([
             'anthropic_version' => $apiVersion,
-            'messages' => MessageMap::map($request->messages()),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'max_tokens' => $request->maxTokens(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'temperature' => $request->temperature(),
@@ -113,7 +115,10 @@ class AnthropicTextHandler extends BedrockTextHandler
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
             ),
-            messages: new Collection
+            messages: new Collection,
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
+            ]),
         );
     }
 

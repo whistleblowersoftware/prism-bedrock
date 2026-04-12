@@ -19,16 +19,17 @@ class MessageMap
 {
     /**
      * @param  array<int, Message>  $messages
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<int, mixed>
      */
-    public static function map(array $messages): array
+    public static function map(array $messages, array $requestProviderOptions = []): array
     {
         if (array_filter($messages, fn (Message $message): bool => $message instanceof SystemMessage) !== []) {
             throw new PrismException('Bedrock Converse API does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
         $mapped = array_map(
-            self::mapMessage(...),
+            fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
         );
 
@@ -101,12 +102,13 @@ class MessageMap
     }
 
     /**
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapMessage(Message $message): array
+    protected static function mapMessage(Message $message, array $requestProviderOptions = []): array
     {
         return match ($message::class) {
-            UserMessage::class => self::mapUserMessage($message),
+            UserMessage::class => self::mapUserMessage($message, $requestProviderOptions),
             AssistantMessage::class => self::mapAssistantMessage($message),
             ToolResultMessage::class => self::mapToolResultMessage($message),
             SystemMessage::class => self::mapSystemMessage($message),
@@ -144,9 +146,10 @@ class MessageMap
     }
 
     /**
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapUserMessage(UserMessage $message): array
+    protected static function mapUserMessage(UserMessage $message, array $requestProviderOptions = []): array
     {
         $cacheType = data_get($message->providerOptions(), 'cacheType');
 
@@ -155,7 +158,7 @@ class MessageMap
             'content' => array_filter([
                 ['text' => $message->text()],
                 ...self::mapImageParts($message->images()),
-                ...self::mapDocumentParts($message->documents()),
+                ...self::mapDocumentParts($message->documents(), $requestProviderOptions),
                 $cacheType ? ['cachePoint' => ['type' => $cacheType]] : null,
             ]),
         ];
@@ -207,12 +210,13 @@ class MessageMap
 
     /**
      * @param  Document[]  $parts
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string,array<string,mixed>>
      */
-    protected static function mapDocumentParts(array $parts): array
+    protected static function mapDocumentParts(array $parts, array $requestProviderOptions = []): array
     {
         return array_map(
-            fn (Document $document): array => (new DocumentMapper($document))->toPayload(),
+            fn (Document $document): array => (new DocumentMapper($document, requestProviderOptions: $requestProviderOptions))->toPayload(),
             $parts
         );
     }

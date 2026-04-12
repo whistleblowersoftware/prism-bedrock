@@ -2,9 +2,8 @@
 
 namespace Clinically\PrismBedrock\Schemas\Converse;
 
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Collection;
 use Clinically\PrismBedrock\Contracts\BedrockTextHandler;
+use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsCitations;
 use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsText;
 use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsThinking;
 use Clinically\PrismBedrock\Schemas\Converse\Concerns\ExtractsToolCalls;
@@ -12,6 +11,9 @@ use Clinically\PrismBedrock\Schemas\Converse\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\MessageMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\ToolChoiceMap;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\ToolMap;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -28,7 +30,7 @@ use Throwable;
 
 class ConverseTextHandler extends BedrockTextHandler
 {
-    use CallsTools, ExtractsText, ExtractsThinking, ExtractsToolCalls;
+    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, ExtractsToolCalls;
 
     protected TextResponse $tempResponse;
 
@@ -76,7 +78,7 @@ class ConverseTextHandler extends BedrockTextHandler
                 'temperature' => $request->temperature(),
                 'topP' => $request->topP(),
             ], fn (mixed $value): bool => $value !== null),
-            'messages' => MessageMap::map($request->messages()),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'toolConfig' => $request->tools() === []
                 ? null
@@ -123,7 +125,10 @@ class ConverseTextHandler extends BedrockTextHandler
             ),
             meta: new Meta(id: '', model: ''),
             messages: new Collection, // Not provided in Converse response.
-            additionalContent: $this->extractThinking($data),
+            additionalContent: Arr::whereNotNull([
+                'citations' => $this->extractCitations($data),
+                ...$this->extractThinking($data),
+            ]),
         );
     }
 

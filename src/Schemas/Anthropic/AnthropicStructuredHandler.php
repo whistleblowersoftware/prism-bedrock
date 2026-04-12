@@ -2,8 +2,6 @@
 
 namespace Clinically\PrismBedrock\Schemas\Anthropic;
 
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Collection;
 use Clinically\PrismBedrock\Contracts\BedrockStructuredHandler;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsText;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsToolCalls;
@@ -11,6 +9,8 @@ use Clinically\PrismBedrock\Schemas\Anthropic\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\MessageMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolChoiceMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolMap;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -46,13 +46,13 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
     #[\Override]
     public function handle(Request $request): StructuredResponse
     {
-        if ($this->responseBuilder->steps->isEmpty()) {
+        if ($this->responseBuilder->steps->isEmpty() && ! $this->useNativeStructured($request)) {
             $this->appendMessageForJsonMode($request);
         }
 
         $this->sendRequest($request);
 
-        $this->prepareTempResponse();
+        $this->prepareTempResponse($request);
 
         $responseMessage = new AssistantMessage(
             content: $this->tempResponse->text,
@@ -73,15 +73,24 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
      */
     public static function buildPayload(Request $request, ?string $apiVersion): array
     {
+        $useNative = $request->providerOptions('use_native_structured') !== false
+            && $request->schema() !== null;
+
         return array_filter([
             'anthropic_version' => $apiVersion,
-            'messages' => MessageMap::map($request->messages()),
+            'messages' => MessageMap::map($request->messages(), $request->providerOptions()),
             'max_tokens' => $request->maxTokens(),
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
+            'output_config' => $useNative ? [
+                'format' => [
+                    'type' => 'json_schema',
+                    'schema' => $request->schema()->toArray(),
+                ],
+            ] : null,
         ], fn (mixed $value): bool => $value !== null);
     }
 
@@ -97,14 +106,21 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
         }
     }
 
-    protected function prepareTempResponse(): void
+    protected function prepareTempResponse(?Request $request = null): void
     {
         $data = $this->httpResponse->json();
 
+        $text = $this->extractText($data);
+        $structured = [];
+
+        if ($request !== null && $this->useNativeStructured($request)) {
+            $structured = json_decode($text, associative: true) ?? [];
+        }
+
         $this->tempResponse = new StructuredResponse(
             steps: new Collection,
-            text: $this->extractText($data),
-            structured: [],
+            text: $text,
+            structured: $structured,
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
             toolCalls: $this->extractToolCalls($data),
             usage: new Usage(
@@ -164,6 +180,12 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
             toolCalls: $this->tempResponse->toolCalls,
             toolResults: $toolResults,
         ));
+    }
+
+    protected function useNativeStructured(Request $request): bool
+    {
+        return $request->providerOptions('use_native_structured') !== false
+            && $request->schema() !== null;
     }
 
     protected function appendMessageForJsonMode(Request $request): void

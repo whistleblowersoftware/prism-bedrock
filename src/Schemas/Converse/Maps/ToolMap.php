@@ -19,11 +19,12 @@ class ToolMap
                 'name' => $tool->name(),
                 'description' => $tool->description(),
                 'inputSchema' => [
-                    'json' => [
+                    'json' => array_filter([
                         'type' => 'object',
                         'properties' => $tool->parametersAsArray() ?: (object) [],
                         'required' => $tool->requiredParameters(),
-                    ],
+                        'strict' => data_get($tool->providerOptions(), 'strict') ? true : null,
+                    ], fn (mixed $value): bool => $value !== null),
                 ],
             ],
         ], $tools);

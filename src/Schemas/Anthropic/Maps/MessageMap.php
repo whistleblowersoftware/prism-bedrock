@@ -7,6 +7,7 @@ namespace Clinically\PrismBedrock\Schemas\Anthropic\Maps;
 use BackedEnum;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -19,16 +20,17 @@ class MessageMap
 {
     /**
      * @param  array<int, Message>  $messages
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<int, mixed>
      */
-    public static function map(array $messages): array
+    public static function map(array $messages, array $requestProviderOptions = []): array
     {
         if (array_filter($messages, fn (Message $message): bool => $message instanceof SystemMessage) !== []) {
             throw new PrismException('Anthropic does not support SystemMessages in the messages array. Use withSystemPrompt or withSystemPrompts instead.');
         }
 
         $mapped = array_map(
-            self::mapMessage(...),
+            fn (Message $message): array => self::mapMessage($message, $requestProviderOptions),
             $messages
         );
 
@@ -95,12 +97,13 @@ class MessageMap
     }
 
     /**
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapMessage(Message $message): array
+    protected static function mapMessage(Message $message, array $requestProviderOptions = []): array
     {
         return match ($message::class) {
-            UserMessage::class => self::mapUserMessage($message),
+            UserMessage::class => self::mapUserMessage($message, $requestProviderOptions),
             AssistantMessage::class => self::mapAssistantMessage($message),
             ToolResultMessage::class => self::mapToolResultMessage($message),
             default => throw new PrismException('Anthropic: Could not map message type '.$message::class),
@@ -139,9 +142,10 @@ class MessageMap
     }
 
     /**
+     * @param  array<string, mixed>  $requestProviderOptions
      * @return array<string, mixed>
      */
-    protected static function mapUserMessage(UserMessage $message): array
+    protected static function mapUserMessage(UserMessage $message, array $requestProviderOptions = []): array
     {
         $providerOptions = $message->providerOptions();
 
@@ -176,15 +180,13 @@ class MessageMap
 
         $content = [];
 
-        if (isset($message->additionalContent['messagePartsWithCitations'])) {
-            throw new PrismException('Anthropic: Citations are not yet supported by Anthropic on Bedrock.');
-            // TODO: update once citation support is supported by Anthropic on Bedrock
-            // foreach ($message->additionalContent['messagePartsWithCitations'] as $part) {
-            //     $content[] = array_filter([
-            //         ...$part->toContentBlock(),
-            //         'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
-            //     ]);
-            // }
+        if (isset($message->additionalContent['citations'])) {
+            foreach ($message->additionalContent['citations'] as $part) {
+                $content[] = array_filter([
+                    ...CitationsMapper::mapToAnthropic($part),
+                    'cache_control' => $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null,
+                ]);
+            }
         } elseif ($message->content !== '' && $message->content !== '0') {
 
             $content[] = array_filter([

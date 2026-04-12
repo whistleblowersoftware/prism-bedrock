@@ -29,6 +29,7 @@ class ToolMap
                 'cache_control' => $cacheType
                     ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType]
                     : null,
+                'strict' => data_get($tool->providerOptions(), 'strict') ? true : null,
             ]);
         }, $tools);
     }
