@@ -8,6 +8,7 @@ use BackedEnum;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -152,10 +153,6 @@ class MessageMap
         $cacheType = data_get($providerOptions, 'cacheType');
         $cache_control = $cacheType ? ['type' => $cacheType instanceof BackedEnum ? $cacheType->value : $cacheType] : null;
 
-        if ($message->documents() !== []) {
-            throw new PrismException('Anthropic: Documents are not yet supported by Anthropic on Bedrock.');
-        }
-
         return [
             'role' => 'user',
             'content' => [
@@ -165,6 +162,7 @@ class MessageMap
                     'cache_control' => $cache_control,
                 ]),
                 ...self::mapImageParts($message->images(), $cache_control),
+                ...self::mapDocumentParts($message->documents(), $cache_control, $requestProviderOptions),
             ],
         ];
     }
@@ -220,6 +218,20 @@ class MessageMap
     {
         return array_map(
             fn (Image $image): array => (new ImageMapper($image, $cache_control))->toPayload(),
+            $parts
+        );
+    }
+
+    /**
+     * @param  Document[]  $parts
+     * @param  array<string, mixed>|null  $cache_control
+     * @param  array<string, mixed>  $requestProviderOptions
+     * @return array<int, mixed>
+     */
+    protected static function mapDocumentParts(array $parts, ?array $cache_control = null, array $requestProviderOptions = []): array
+    {
+        return array_map(
+            fn (Document $document): array => (new DocumentMapper($document, $cache_control, $requestProviderOptions))->toPayload(),
             $parts
         );
     }

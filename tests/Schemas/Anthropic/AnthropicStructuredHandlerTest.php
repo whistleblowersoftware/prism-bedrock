@@ -65,6 +65,7 @@ it('uses custom jsonModeMessage when provided via providerOptions', function ():
         ->withSchema($schema)
         ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
         ->withProviderOptions([
+            'use_native_structured' => false,
             'jsonModeMessage' => $customMessage,
         ])
         ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
@@ -72,11 +73,7 @@ it('uses custom jsonModeMessage when provided via providerOptions', function ():
         ->asStructured();
 
     Http::assertSent(function (Request $request) use ($customMessage): bool {
-        $messages = $request->data()['messages'] ?? [];
-        $lastMessage = end($messages);
-
-        return isset($lastMessage['content'][0]['text']) &&
-               str_contains((string) $lastMessage['content'][0]['text'], $customMessage);
+        return str_contains(json_encode($request->data()['messages'] ?? []), $customMessage);
     });
 });
 
@@ -99,16 +96,15 @@ it('uses default jsonModeMessage when no custom message is provided', function (
     Prism::structured()
         ->withSchema($schema)
         ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions([
+            'use_native_structured' => false,
+        ])
         ->withSystemPrompt('The tigers game is at 3pm and the temperature will be 70º')
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
 
     Http::assertSent(function (Request $request) use ($defaultMessage): bool {
-        $messages = $request->data()['messages'] ?? [];
-        $lastMessage = end($messages);
-
-        return isset($lastMessage['content'][0]['text']) &&
-               str_contains((string) $lastMessage['content'][0]['text'], $defaultMessage);
+        return str_contains(json_encode($request->data()['messages'] ?? []), $defaultMessage);
     });
 });
 

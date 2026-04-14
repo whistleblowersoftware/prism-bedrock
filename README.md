@@ -132,7 +132,7 @@ Each schema supports different capabilities:
 
 \* A unified interface for multiple providers. See [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html) for a list of supported models.
 
-\*\* The Converse schema does not support Anthropic's native features (e.g. PDF vision analysis). This schema uses Anthropic's native schema and therefore allows use of Anthropic native features. Please note however that Bedrock's Anthropic schema does not yet have feature parity with Anthropic. Notably it does not support documents, and prompt caching support may be limited to specific Claude models. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html) for the latest supported models. To use documents with Anthropic's models, use them via the Converse schema (though note that this not the same as using Anthropic's PDF vision directly).
+\*\* The Converse schema does not support Anthropic's native features (e.g. PDF vision analysis). This schema uses Anthropic's native schema and therefore allows use of Anthropic native features. Please note however that Bedrock's Anthropic schema does not yet have feature parity with Anthropic. Prompt caching support may be limited to specific Claude models. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html) for the latest supported models. Documents are supported on the Anthropic schema (base64-encoded only, not URLs or file IDs).
 
 ## Auto-resolution of API schemas
 

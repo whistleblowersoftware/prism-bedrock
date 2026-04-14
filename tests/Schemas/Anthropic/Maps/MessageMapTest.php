@@ -7,6 +7,7 @@ namespace Tests\Schemas\Anthropic\Maps;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\MessageMap;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Enums\AnthropicCacheType;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
@@ -58,6 +59,40 @@ it('maps user messages with images from base64', function (): void {
         ->toContain(base64_encode(file_get_contents('tests/Fixtures/test-image.png')));
     expect(data_get($mappedMessage, '0.content.1.source.media_type'))
         ->toBe('image/png');
+});
+
+it('maps user messages with a document from path', function (): void {
+    $mappedMessage = MessageMap::map([
+        new UserMessage('What does this say?', [
+            Document::fromLocalPath('tests/Fixtures/document.pdf', 'Test Document'),
+        ]),
+    ]);
+
+    expect(data_get($mappedMessage, '0.content.1.type'))
+        ->toBe('document');
+    expect(data_get($mappedMessage, '0.content.1.title'))
+        ->toBe('Test Document');
+    expect(data_get($mappedMessage, '0.content.1.source.type'))
+        ->toBe('base64');
+    expect(data_get($mappedMessage, '0.content.1.source.media_type'))
+        ->toBe('application/pdf');
+});
+
+it('maps user messages with a text document from path as base64', function (): void {
+    $mappedMessage = MessageMap::map([
+        new UserMessage('What does this say?', [
+            Document::fromLocalPath('tests/Fixtures/document.md', 'Test MD'),
+        ]),
+    ]);
+
+    expect(data_get($mappedMessage, '0.content.1.type'))
+        ->toBe('document');
+    expect(data_get($mappedMessage, '0.content.1.title'))
+        ->toBe('Test MD');
+    expect(data_get($mappedMessage, '0.content.1.source.type'))
+        ->toBe('base64');
+    expect(data_get($mappedMessage, '0.content.1.source.data'))
+        ->not()->toBeEmpty();
 });
 
 it('does not maps user messages with images from url', function (): void {

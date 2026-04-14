@@ -6,6 +6,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Facades\Tool;
+use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -192,6 +193,69 @@ it('enables prompt caching if the enableCaching provider meta is set on the requ
         ->asText();
 
     Http::assertSent(fn (Request $request): bool => $request->header('explicitPromptCaching')[0] === 'enabled');
+});
+
+it('can query a pdf document', function (): void {
+    FixtureResponse::fakeResponseSequence('invoke', 'anthropic/query-a-document');
+
+    $response = Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withMessages([
+            new UserMessage(
+                content: 'What is the answer to life?',
+                additionalContent: [
+                    Document::fromPath('tests/Fixtures/document.pdf', 'The Answer To Life'),
+                ]
+            ),
+        ])
+        ->asText();
+
+    expect($response->text)->toContain('42');
+
+    Http::assertSent(function (Request $request): bool {
+        $message = $request->data()['messages'][0]['content'];
+
+        expect($message[0])->toBe([
+            'type' => 'text',
+            'text' => 'What is the answer to life?',
+        ]);
+
+        expect($message[1]['type'])->toBe('document');
+        expect($message[1]['title'])->toBe('The Answer To Life');
+        expect($message[1]['source']['type'])->toBe('base64');
+        expect($message[1]['source']['media_type'])->toBe('application/pdf');
+
+        return true;
+    });
+});
+
+it('can query a text document as base64', function (): void {
+    FixtureResponse::fakeResponseSequence('invoke', 'anthropic/query-a-document');
+
+    $response = Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withMessages([
+            new UserMessage(
+                content: 'What is the answer to life?',
+                additionalContent: [
+                    Document::fromPath('tests/Fixtures/document.md', 'The Answer To Life'),
+                ]
+            ),
+        ])
+        ->asText();
+
+    expect($response->text)->toContain('42');
+
+    Http::assertSent(function (Request $request): bool {
+        $message = $request->data()['messages'][0]['content'];
+
+        expect($message[1]['type'])->toBe('document');
+        expect($message[1]['title'])->toBe('The Answer To Life');
+        expect($message[1]['source']['type'])->toBe('base64');
+        expect($message[1]['source']['data'])->not()->toBeEmpty();
+
+        return true;
+    });
 });
 
 it('does not remove 0 values from payloads', function (): void {
