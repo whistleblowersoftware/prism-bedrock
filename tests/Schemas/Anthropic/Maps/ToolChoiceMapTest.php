@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Anthropic\Maps;
 
-use InvalidArgumentException;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolChoiceMap;
+use InvalidArgumentException;
 use Prism\Prism\Enums\ToolChoice;
 
 it('returns null when tool choice is null', function (): void {

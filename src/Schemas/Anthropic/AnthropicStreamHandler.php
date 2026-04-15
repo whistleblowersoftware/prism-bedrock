@@ -92,6 +92,7 @@ class AnthropicStreamHandler extends BedrockStreamHandler
      * Bedrock wraps Anthropic streaming events in a binary event stream where each
      * frame's payload contains `{ "bytes": "base64-encoded-json" }`.
      *
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>|null
      */
     protected function decodeAnthropicEvent(array $data): ?array
@@ -117,7 +118,10 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         return $event;
     }
 
-    /** @return StreamEvent|Generator<StreamEvent>|null */
+    /**
+     * @param  array<string, mixed>  $event
+     * @return StreamEvent|Generator<StreamEvent>|null
+     */
     protected function processEvent(array $event): StreamEvent|Generator|null
     {
         return match ($event['type'] ?? null) {
@@ -132,7 +136,10 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         };
     }
 
-    /** @return Generator<StreamEvent> */
+    /**
+     * @param  array<string, mixed>  $event
+     * @return Generator<StreamEvent>
+     */
     protected function handleMessageStart(array $event): Generator
     {
         $message = $event['message'] ?? [];
@@ -170,6 +177,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     protected function handleContentBlockStart(array $event): ?StreamEvent
     {
         $contentBlock = $event['content_block'] ?? [];
@@ -200,6 +210,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $delta
+     */
     protected function handleThinkingDelta(array $delta): ?ThinkingEvent
     {
         $text = $delta['thinking'] ?? '';
@@ -218,6 +231,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $contentBlock
+     */
     protected function handleToolUseStart(array $contentBlock): null
     {
         if ($this->state->currentBlockIndex() !== null) {
@@ -231,6 +247,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     protected function handleContentBlockDelta(array $event): ?StreamEvent
     {
         $delta = $event['delta'] ?? [];
@@ -244,6 +263,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         };
     }
 
+    /**
+     * @param  array<string, mixed>  $delta
+     */
     protected function handleTextDelta(array $delta): ?TextDeltaEvent
     {
         $text = $delta['text'] ?? '';
@@ -262,6 +284,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $delta
+     */
     protected function handleToolInputDelta(array $delta): ?ToolCallDeltaEvent
     {
         $partialJson = $delta['partial_json'] ?? '';
@@ -290,6 +315,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     protected function handleContentBlockStop(array $event): ?StreamEvent
     {
         $result = match ($this->state->currentBlockType()) {
@@ -354,6 +382,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $event
+     */
     protected function handleMessageDelta(array $event): null
     {
         $delta = $event['delta'] ?? [];

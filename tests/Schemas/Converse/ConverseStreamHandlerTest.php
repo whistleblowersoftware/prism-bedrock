@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Converse;
 
+use Clinically\PrismBedrock\Bedrock;
+use Clinically\PrismBedrock\Schemas\Converse\ConverseStreamHandler;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Clinically\PrismBedrock\Bedrock;
-use Clinically\PrismBedrock\Schemas\Converse\ConverseStreamHandler;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;
@@ -40,11 +40,13 @@ class TestableConverseStreamHandler extends ConverseStreamHandler
         return $this;
     }
 
+    #[\Override]
     protected function sendRequest(Request $request): Response
     {
         return new Response(new \GuzzleHttp\Psr7\Response(200));
     }
 
+    #[\Override]
     protected function iterateEventStream(Response $response): Generator
     {
         foreach ($this->fakeEvents as $event) {
@@ -145,11 +147,11 @@ it('streams tool calls', function (): void {
     expect($events[0])->toBeInstanceOf(StreamStartEvent::class);
     expect($events[1])->toBeInstanceOf(StepStartEvent::class);
 
-    $toolDeltas = array_values(array_filter($events, fn ($e) => $e instanceof ToolCallDeltaEvent));
+    $toolDeltas = array_values(array_filter($events, fn ($e): bool => $e instanceof ToolCallDeltaEvent));
     expect($toolDeltas)->toHaveCount(2);
     expect($toolDeltas[0]->toolName)->toBe('weather');
 
-    $toolCalls = array_values(array_filter($events, fn ($e) => $e instanceof ToolCallEvent));
+    $toolCalls = array_values(array_filter($events, fn ($e): bool => $e instanceof ToolCallEvent));
     expect($toolCalls)->toHaveCount(1);
     expect($toolCalls[0]->toolCall->name)->toBe('weather');
     expect($toolCalls[0]->toolCall->arguments())->toBe(['city' => 'Detroit']);
@@ -168,7 +170,7 @@ it('handles empty text deltas gracefully', function (): void {
 
     $events = collectEvents($handler->handle(createTextRequest()));
 
-    $textDeltas = array_values(array_filter($events, fn ($e) => $e instanceof TextDeltaEvent));
+    $textDeltas = array_values(array_filter($events, fn ($e): bool => $e instanceof TextDeltaEvent));
     expect($textDeltas)->toHaveCount(1);
     expect($textDeltas[0]->delta)->toBe('Hello');
 });
@@ -186,6 +188,6 @@ it('ignores unknown event types', function (): void {
 
     $events = collectEvents($handler->handle(createTextRequest()));
 
-    $textDeltas = array_values(array_filter($events, fn ($e) => $e instanceof TextDeltaEvent));
+    $textDeltas = array_values(array_filter($events, fn ($e): bool => $e instanceof TextDeltaEvent));
     expect($textDeltas)->toHaveCount(1);
 });

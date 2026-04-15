@@ -4,10 +4,10 @@ namespace Clinically\PrismBedrock;
 
 use Aws\Credentials\Credentials;
 use Aws\Signature\SignatureV4;
+use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Request;
-use Clinically\PrismBedrock\Enums\BedrockSchema;
 use Prism\Prism\Concerns\InitializesClient;
 use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Embeddings\Request as EmbeddingRequest;

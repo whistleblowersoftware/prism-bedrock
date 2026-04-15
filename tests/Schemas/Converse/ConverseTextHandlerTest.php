@@ -355,7 +355,7 @@ it('sends citationConfig on documents when citations are enabled', function (): 
         $content = $userMessage['content'] ?? [];
 
         // Find the document content block
-        $documentBlock = collect($content)->first(fn ($block) => isset($block['document']));
+        $documentBlock = collect($content)->first(fn ($block): bool => isset($block['document']));
 
         expect($documentBlock)->not()->toBeNull();
         expect($documentBlock['document'])->toHaveKey('citationConfig');
@@ -386,7 +386,7 @@ it('does not send citationConfig on documents when citations are not enabled', f
         $userMessage = $messages[0] ?? [];
         $content = $userMessage['content'] ?? [];
 
-        $documentBlock = collect($content)->first(fn ($block) => isset($block['document']));
+        $documentBlock = collect($content)->first(fn ($block): bool => isset($block['document']));
 
         expect($documentBlock)->not()->toBeNull();
         expect($documentBlock['document'])->not()->toHaveKey('citationConfig');

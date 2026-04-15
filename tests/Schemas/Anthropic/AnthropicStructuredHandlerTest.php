@@ -72,9 +72,7 @@ it('uses custom jsonModeMessage when provided via providerOptions', function ():
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
 
-    Http::assertSent(function (Request $request) use ($customMessage): bool {
-        return str_contains(json_encode($request->data()['messages'] ?? []), $customMessage);
-    });
+    Http::assertSent(fn (Request $request): bool => str_contains(json_encode($request->data()['messages'] ?? []), $customMessage));
 });
 
 it('uses default jsonModeMessage when no custom message is provided', function (): void {
@@ -103,9 +101,7 @@ it('uses default jsonModeMessage when no custom message is provided', function (
         ->withPrompt('What time is the tigers game today and should I wear a coat?')
         ->asStructured();
 
-    Http::assertSent(function (Request $request) use ($defaultMessage): bool {
-        return str_contains(json_encode($request->data()['messages'] ?? []), $defaultMessage);
-    });
+    Http::assertSent(fn (Request $request): bool => str_contains(json_encode($request->data()['messages'] ?? []), $defaultMessage));
 });
 
 it('can generate structured output using tools', function (): void {

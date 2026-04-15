@@ -8,6 +8,7 @@ use Prism\Prism\Providers\Anthropic\Maps\ImageMapper as AnthropicImageMapper;
 
 class ImageMapper extends AnthropicImageMapper
 {
+    #[\Override]
     protected function validateMedia(): bool
     {
         if ($this->media->isUrl()) {

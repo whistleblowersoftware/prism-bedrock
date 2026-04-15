@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Stability;
 
+use Clinically\PrismBedrock\Bedrock;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Clinically\PrismBedrock\Bedrock;
 use Prism\Prism\Facades\Prism;
 use Tests\Fixtures\FixtureResponse;
 

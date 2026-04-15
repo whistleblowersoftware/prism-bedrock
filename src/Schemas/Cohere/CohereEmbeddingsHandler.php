@@ -2,9 +2,9 @@
 
 namespace Clinically\PrismBedrock\Schemas\Cohere;
 
+use Clinically\PrismBedrock\Contracts\BedrockEmbeddingsHandler;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Clinically\PrismBedrock\Contracts\BedrockEmbeddingsHandler;
 use Prism\Prism\Embeddings\Request;
 use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Exceptions\PrismException;

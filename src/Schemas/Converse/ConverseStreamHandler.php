@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Clinically\PrismBedrock\Schemas\Converse;
 
-use Generator;
-use Illuminate\Http\Client\Response;
 use Clinically\PrismBedrock\Concerns\ParsesEventStream;
 use Clinically\PrismBedrock\Contracts\BedrockStreamHandler;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\FinishReasonMap;
+use Generator;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -83,7 +83,10 @@ class ConverseStreamHandler extends BedrockStreamHandler
         yield $this->emitStreamEndEvent();
     }
 
-    /** @return StreamEvent|Generator<StreamEvent>|null */
+    /**
+     * @param  array<string, mixed>  $data
+     * @return StreamEvent|Generator<StreamEvent>|null
+     */
     protected function processEvent(string $eventType, array $data): StreamEvent|Generator|null
     {
         return match ($eventType) {
@@ -97,7 +100,10 @@ class ConverseStreamHandler extends BedrockStreamHandler
         };
     }
 
-    /** @return Generator<StreamEvent> */
+    /**
+     * @param  array<string, mixed>  $data
+     * @return Generator<StreamEvent>
+     */
     protected function handleMessageStart(array $data): Generator
     {
         $this->state->withMessageId(EventID::generate());
@@ -123,6 +129,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function handleContentBlockStart(array $data): ?StreamEvent
     {
         $start = $data['start'] ?? [];
@@ -161,6 +170,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function handleContentBlockDelta(array $data): ?StreamEvent
     {
         $delta = $data['delta'] ?? [];
@@ -193,6 +205,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>  $reasoningContent
+     */
     protected function handleReasoningDelta(array $reasoningContent): ?ThinkingEvent
     {
         $text = $reasoningContent['text'] ?? '';
@@ -211,6 +226,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $toolUseDelta
+     */
     protected function handleToolUseDelta(array $toolUseDelta): ?ToolCallDeltaEvent
     {
         $partialJson = $toolUseDelta['input'] ?? '';
@@ -239,6 +257,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function handleContentBlockStop(array $data): ?StreamEvent
     {
         $result = match ($this->state->currentBlockType()) {
@@ -303,6 +324,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function handleMessageStop(array $data): null
     {
         $stopReason = $data['stopReason'] ?? null;
@@ -314,6 +338,9 @@ class ConverseStreamHandler extends BedrockStreamHandler
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function handleMetadata(array $data): null
     {
         $usage = $data['usage'] ?? [];

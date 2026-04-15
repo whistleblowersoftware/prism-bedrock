@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Clinically\PrismBedrock\Contracts;
 
-use Illuminate\Http\Client\PendingRequest;
 use Clinically\PrismBedrock\Bedrock;
+use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Text\Request;
 use Prism\Prism\Text\Response;
 
