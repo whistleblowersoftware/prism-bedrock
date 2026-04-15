@@ -2,7 +2,6 @@
 
 namespace Clinically\PrismBedrock\Enums;
 
-use Illuminate\Support\Str;
 use Clinically\PrismBedrock\Contracts\BedrockEmbeddingsHandler;
 use Clinically\PrismBedrock\Contracts\BedrockImagesHandler;
 use Clinically\PrismBedrock\Contracts\BedrockStreamHandler;
@@ -17,6 +16,7 @@ use Clinically\PrismBedrock\Schemas\Converse\ConverseStructuredHandler;
 use Clinically\PrismBedrock\Schemas\Converse\ConverseTextHandler;
 use Clinically\PrismBedrock\Schemas\Stability\StabilityImagesHandler;
 use Clinically\PrismBedrock\Schemas\Titan\TitanImagesHandler;
+use Illuminate\Support\Str;
 
 enum BedrockSchema: string
 {

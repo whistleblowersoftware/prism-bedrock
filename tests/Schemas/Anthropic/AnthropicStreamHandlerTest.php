@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Anthropic;
 
+use Clinically\PrismBedrock\Bedrock;
+use Clinically\PrismBedrock\Schemas\Anthropic\AnthropicStreamHandler;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Clinically\PrismBedrock\Bedrock;
-use Clinically\PrismBedrock\Schemas\Anthropic\AnthropicStreamHandler;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;

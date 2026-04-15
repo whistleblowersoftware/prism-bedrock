@@ -2,8 +2,8 @@
 
 namespace Clinically\PrismBedrock\Contracts;
 
-use Illuminate\Http\Client\PendingRequest;
 use Clinically\PrismBedrock\Bedrock;
+use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response;
 

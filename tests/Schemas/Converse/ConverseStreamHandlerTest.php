@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Schemas\Converse;
 
+use Clinically\PrismBedrock\Bedrock;
+use Clinically\PrismBedrock\Schemas\Converse\ConverseStreamHandler;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Clinically\PrismBedrock\Bedrock;
-use Clinically\PrismBedrock\Schemas\Converse\ConverseStreamHandler;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StepFinishEvent;
 use Prism\Prism\Streaming\Events\StepStartEvent;

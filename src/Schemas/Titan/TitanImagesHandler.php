@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Clinically\PrismBedrock\Schemas\Titan;
 
+use Clinically\PrismBedrock\Contracts\BedrockImagesHandler;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
-use Clinically\PrismBedrock\Contracts\BedrockImagesHandler;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Images\Request;
 use Prism\Prism\Images\Response as ImagesResponse;

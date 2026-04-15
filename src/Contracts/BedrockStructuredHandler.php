@@ -2,8 +2,8 @@
 
 namespace Clinically\PrismBedrock\Contracts;
 
-use Illuminate\Http\Client\PendingRequest;
 use Clinically\PrismBedrock\Bedrock;
+use Illuminate\Http\Client\PendingRequest;
 use Prism\Prism\Structured\Request;
 use Prism\Prism\Structured\Response as StructuredResponse;
 

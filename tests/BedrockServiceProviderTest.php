@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Http;
 use Clinically\PrismBedrock\Bedrock;
 use Clinically\PrismBedrock\Enums\BedrockSchema;
+use Illuminate\Support\Facades\Http;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Facades\Prism;
 

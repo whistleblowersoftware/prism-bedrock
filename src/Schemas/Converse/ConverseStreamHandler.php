@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Clinically\PrismBedrock\Schemas\Converse;
 
-use Generator;
-use Illuminate\Http\Client\Response;
 use Clinically\PrismBedrock\Concerns\ParsesEventStream;
 use Clinically\PrismBedrock\Contracts\BedrockStreamHandler;
 use Clinically\PrismBedrock\Schemas\Converse\Maps\FinishReasonMap;
+use Generator;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;

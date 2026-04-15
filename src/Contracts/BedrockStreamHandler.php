@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Clinically\PrismBedrock\Contracts;
 
+use Clinically\PrismBedrock\Bedrock;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
-use Clinically\PrismBedrock\Bedrock;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Text\Request;
 
