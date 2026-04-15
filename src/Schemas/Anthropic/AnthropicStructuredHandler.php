@@ -110,7 +110,7 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
         $text = $this->extractText($data);
         $structured = [];
 
-        if ($request !== null && $this->useNativeStructured($request)) {
+        if ($request instanceof \Prism\Prism\Structured\Request && $this->useNativeStructured($request)) {
             $structured = json_decode($text, associative: true) ?? [];
         }
 

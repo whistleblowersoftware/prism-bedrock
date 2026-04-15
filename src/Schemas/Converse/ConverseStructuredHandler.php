@@ -133,7 +133,7 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
         $text = $this->extractText($data);
         $structured = [];
 
-        if ($request !== null && $this->useNativeStructured($request)) {
+        if ($request instanceof \Prism\Prism\Structured\Request && $this->useNativeStructured($request)) {
             $structured = json_decode($text, associative: true) ?? [];
         }
 
@@ -142,14 +142,14 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
             text: $text,
             structured: $structured,
             finishReason: FinishReasonMap::map(data_get($data, 'stopReason')),
-            toolCalls: $this->extractToolCalls($data),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.inputTokens'),
                 completionTokens: data_get($data, 'usage.outputTokens'),
                 cacheWriteInputTokens: data_get($data, 'usage.cacheWriteInputTokenCount'),
                 cacheReadInputTokens: data_get($data, 'usage.cacheReadInputTokenCount'),
             ),
-            meta: new Meta(id: '', model: ''), // Not provided in Converse response.
+            meta: new Meta(id: '', model: ''),
+            toolCalls: $this->extractToolCalls($data), // Not provided in Converse response.
             additionalContent: $this->extractThinking($data),
         );
     }

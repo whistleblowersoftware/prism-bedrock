@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Clinically\PrismBedrock\Schemas\Converse\Concerns;
 
 trait ExtractsThinking

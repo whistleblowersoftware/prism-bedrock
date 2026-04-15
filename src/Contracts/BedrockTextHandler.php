@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Clinically\PrismBedrock\Contracts;
 
 use Clinically\PrismBedrock\Bedrock;

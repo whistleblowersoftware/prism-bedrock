@@ -39,6 +39,18 @@ class MessageMap
     }
 
     /**
+     * @param  SystemMessage[]  $messages
+     * @return array<int, mixed>
+     */
+    public static function mapSystemMessages(array $messages): array
+    {
+        return array_map(
+            self::mapSystemMessage(...),
+            $messages
+        );
+    }
+
+    /**
      * Merge consecutive messages with the same role by concatenating their content arrays.
      *
      * The Anthropic Messages API requires strict role alternation (user, assistant, user, ...).
@@ -81,18 +93,6 @@ class MessageMap
         $merged[] = $current;
 
         return $merged;
-    }
-
-    /**
-     * @param  SystemMessage[]  $messages
-     * @return array<int, mixed>
-     */
-    public static function mapSystemMessages(array $messages): array
-    {
-        return array_map(
-            self::mapSystemMessage(...),
-            $messages
-        );
     }
 
     /**

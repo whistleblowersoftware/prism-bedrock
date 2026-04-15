@@ -37,6 +37,27 @@ class MessageMap
     }
 
     /**
+     * @param  SystemMessage[]  $systemPrompts
+     * @return array<int, mixed>
+     */
+    public static function mapSystemMessages(array $systemPrompts): array
+    {
+        $output = [];
+
+        foreach ($systemPrompts as $prompt) {
+            $output[] = self::mapSystemMessage($prompt);
+
+            $cacheType = data_get($prompt->providerOptions(), 'cacheType');
+
+            if ($cacheType) {
+                $output[] = ['cachePoint' => ['type' => $cacheType]];
+            }
+        }
+
+        return $output;
+    }
+
+    /**
      * Merge consecutive messages with the same role by concatenating their content arrays.
      *
      * The Bedrock Converse API requires strict role alternation (user, assistant, user, ...).
@@ -76,27 +97,6 @@ class MessageMap
         $merged[] = $current;
 
         return $merged;
-    }
-
-    /**
-     * @param  SystemMessage[]  $systemPrompts
-     * @return array<int, mixed>
-     */
-    public static function mapSystemMessages(array $systemPrompts): array
-    {
-        $output = [];
-
-        foreach ($systemPrompts as $prompt) {
-            $output[] = self::mapSystemMessage($prompt);
-
-            $cacheType = data_get($prompt->providerOptions(), 'cacheType');
-
-            if ($cacheType) {
-                $output[] = ['cachePoint' => ['type' => $cacheType]];
-            }
-        }
-
-        return $output;
     }
 
     /**

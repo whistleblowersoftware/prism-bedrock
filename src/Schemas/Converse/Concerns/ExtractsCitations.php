@@ -54,7 +54,7 @@ trait ExtractsCitations
 
             $mapped = CitationsMapper::mapFromAnthropic($anthropicBlock);
 
-            if ($mapped !== null) {
+            if ($mapped instanceof \Prism\Prism\ValueObjects\MessagePartWithCitations) {
                 $parts[] = $mapped;
             }
         }
