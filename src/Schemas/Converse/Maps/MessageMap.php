@@ -73,9 +73,7 @@ class MessageMap
             $current = $message;
         }
 
-        if ($current !== null) {
-            $merged[] = $current;
-        }
+        $merged[] = $current;
 
         return $merged;
     }

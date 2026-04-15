@@ -75,8 +75,7 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
      */
     public static function buildPayload(Request $request, int $stepCount = 0): array
     {
-        $useNative = $request->providerOptions('use_native_structured') !== false
-            && $request->schema() !== null;
+        $useNative = $request->providerOptions('use_native_structured') !== false;
 
         return array_filter([
             'additionalModelRequestFields' => ConverseTextHandler::buildAdditionalModelRequestFields($request),
@@ -203,8 +202,7 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
 
     protected function useNativeStructured(Request $request): bool
     {
-        return $request->providerOptions('use_native_structured') !== false
-            && $request->schema() !== null;
+        return $request->providerOptions('use_native_structured') !== false;
     }
 
     protected function appendMessageForJsonMode(Request $request): void
