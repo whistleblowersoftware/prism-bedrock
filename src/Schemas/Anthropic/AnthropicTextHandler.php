@@ -4,6 +4,7 @@ namespace Clinically\PrismBedrock\Schemas\Anthropic;
 
 use Clinically\PrismBedrock\Contracts\BedrockTextHandler;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsText;
+use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsThinking;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsToolCalls;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\MessageMap;
@@ -13,6 +14,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
@@ -29,7 +31,7 @@ use Throwable;
 
 class AnthropicTextHandler extends BedrockTextHandler
 {
-    use CallsTools, ExtractsCitations, ExtractsText, ExtractsToolCalls;
+    use CallsTools, ExtractsCitations, ExtractsText, ExtractsThinking, ExtractsToolCalls;
 
     protected TextResponse $tempResponse;
 
@@ -78,9 +80,45 @@ class AnthropicTextHandler extends BedrockTextHandler
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            'thinking' => self::buildThinkingConfig($request),
+            'output_config' => self::buildOutputConfig($request),
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
         ], fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function buildThinkingConfig(PrismRequest $request): ?array
+    {
+        if ($request->providerOptions('thinking.enabled') !== true) {
+            return null;
+        }
+
+        $type = $request->providerOptions('thinking.type') ?? 'adaptive';
+
+        $config = ['type' => $type];
+
+        if (is_int($request->providerOptions('thinking.budgetTokens'))) {
+            $config['budget_tokens'] = $request->providerOptions('thinking.budgetTokens');
+        }
+
+        return $config;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function buildOutputConfig(PrismRequest $request): ?array
+    {
+        $effort = $request->providerOptions('thinking.effort');
+
+        if ($effort === null) {
+            return null;
+        }
+
+        return ['effort' => $effort];
     }
 
     protected function sendRequest(Request $request): void
@@ -118,6 +156,7 @@ class AnthropicTextHandler extends BedrockTextHandler
             messages: new Collection,
             additionalContent: Arr::whereNotNull([
                 'citations' => $this->extractCitations($data),
+                ...$this->extractThinking($data),
             ]),
         );
     }

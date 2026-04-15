@@ -258,6 +258,72 @@ it('can query a text document as base64', function (): void {
     });
 });
 
+it('can generate text with adaptive thinking', function (): void {
+    FixtureResponse::fakeResponseSequence('invoke', 'anthropic/generate-text-with-thinking');
+
+    $response = Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions([
+            'thinking' => ['enabled' => true],
+        ])
+        ->withPrompt('Explain quantum computing')
+        ->asText();
+
+    expect($response->text)->toContain('Quantum computing');
+    expect($response->additionalContent)->toHaveKey('thinking');
+    expect($response->additionalContent['thinking'])->toContain('think about this question');
+    expect($response->additionalContent)->toHaveKey('thinking_signature');
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        expect($data)->toHaveKey('thinking');
+        expect($data['thinking']['type'])->toBe('adaptive');
+
+        return true;
+    });
+});
+
+it('sends thinking config with budget tokens via Anthropic schema', function (): void {
+    FixtureResponse::fakeResponseSequence('invoke', 'anthropic/generate-text-with-thinking');
+
+    Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withProviderOptions([
+            'thinking' => [
+                'enabled' => true,
+                'type' => 'enabled',
+                'budgetTokens' => 8000,
+            ],
+        ])
+        ->withPrompt('Explain quantum computing')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $thinking = $request->data()['thinking'];
+
+        expect($thinking['type'])->toBe('enabled');
+        expect($thinking['budget_tokens'])->toBe(8000);
+
+        return true;
+    });
+});
+
+it('does not send thinking config when not enabled via Anthropic schema', function (): void {
+    FixtureResponse::fakeResponseSequence('invoke', 'anthropic/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-haiku-20241022-v1:0')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data())->not()->toHaveKey('thinking');
+
+        return true;
+    });
+});
+
 it('does not remove 0 values from payloads', function (): void {
     FixtureResponse::fakeResponseSequence('invoke', 'anthropic/generate-text-with-a-prompt');
 

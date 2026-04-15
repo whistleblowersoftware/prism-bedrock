@@ -15,6 +15,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
+use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Text\Request;
@@ -86,13 +87,55 @@ class ConverseTextHandler extends BedrockTextHandler
                     'tools' => ToolMap::map($request->tools()),
                     'toolChoice' => $stepCount === 0 ? ToolChoiceMap::map($request->toolChoice()) : null,
                 ]),
-            'additionalModelRequestFields' => $request->providerOptions('additionalModelRequestFields'),
+            'additionalModelRequestFields' => self::buildAdditionalModelRequestFields($request),
             'additionalModelResponseFieldPaths' => $request->providerOptions('additionalModelResponseFieldPaths'),
             'guardrailConfig' => $request->providerOptions('guardrailConfig'),
             'performanceConfig' => $request->providerOptions('performanceConfig'),
             'promptVariables' => $request->providerOptions('promptVariables'),
             'requestMetadata' => $request->providerOptions('requestMetadata'),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function buildAdditionalModelRequestFields(PrismRequest $request): ?array
+    {
+        $fields = $request->providerOptions('additionalModelRequestFields') ?? [];
+
+        $thinkingConfig = self::buildThinkingConfig($request);
+
+        if ($thinkingConfig !== null) {
+            $fields['thinking'] = $thinkingConfig;
+        }
+
+        $effort = $request->providerOptions('thinking.effort');
+
+        if ($effort !== null) {
+            $fields['output_config'] = ['effort' => $effort];
+        }
+
+        return $fields === [] ? null : $fields;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected static function buildThinkingConfig(PrismRequest $request): ?array
+    {
+        if ($request->providerOptions('thinking.enabled') !== true) {
+            return null;
+        }
+
+        $type = $request->providerOptions('thinking.type') ?? 'adaptive';
+
+        $config = ['type' => $type];
+
+        if (is_int($request->providerOptions('thinking.budgetTokens'))) {
+            $config['budget_tokens'] = $request->providerOptions('thinking.budgetTokens');
+        }
+
+        return $config;
     }
 
     protected function sendRequest(Request $request): void

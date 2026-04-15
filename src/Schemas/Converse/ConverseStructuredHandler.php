@@ -79,7 +79,7 @@ class ConverseStructuredHandler extends BedrockStructuredHandler
             && $request->schema() !== null;
 
         return array_filter([
-            'additionalModelRequestFields' => $request->providerOptions('additionalModelRequestFields'),
+            'additionalModelRequestFields' => ConverseTextHandler::buildAdditionalModelRequestFields($request),
             'additionalModelResponseFieldPaths' => $request->providerOptions('additionalModelResponseFieldPaths'),
             'guardrailConfig' => $request->providerOptions('guardrailConfig'),
             'inferenceConfig' => array_filter([

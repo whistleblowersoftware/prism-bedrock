@@ -4,12 +4,14 @@ namespace Clinically\PrismBedrock\Schemas\Anthropic;
 
 use Clinically\PrismBedrock\Contracts\BedrockStructuredHandler;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsText;
+use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsThinking;
 use Clinically\PrismBedrock\Schemas\Anthropic\Concerns\ExtractsToolCalls;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\FinishReasonMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\MessageMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolChoiceMap;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\ToolMap;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
@@ -28,7 +30,7 @@ use Throwable;
 
 class AnthropicStructuredHandler extends BedrockStructuredHandler
 {
-    use CallsTools, ExtractsText, ExtractsToolCalls;
+    use CallsTools, ExtractsText, ExtractsThinking, ExtractsToolCalls;
 
     protected StructuredResponse $tempResponse;
 
@@ -83,14 +85,10 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
             'system' => MessageMap::mapSystemMessages($request->systemPrompts()),
             'temperature' => $request->temperature(),
             'top_p' => $request->topP(),
+            'thinking' => AnthropicTextHandler::buildThinkingConfig($request),
             'tools' => ToolMap::map($request->tools()),
             'tool_choice' => ToolChoiceMap::map($request->toolChoice()),
-            'output_config' => $useNative ? [
-                'format' => [
-                    'type' => 'json_schema',
-                    'schema' => $request->schema()->toArray(),
-                ],
-            ] : null,
+            'output_config' => self::buildStructuredOutputConfig($request, $useNative),
         ], fn (mixed $value): bool => $value !== null);
     }
 
@@ -122,7 +120,6 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
             text: $text,
             structured: $structured,
             finishReason: FinishReasonMap::map(data_get($data, 'stop_reason', '')),
-            toolCalls: $this->extractToolCalls($data),
             usage: new Usage(
                 promptTokens: data_get($data, 'usage.input_tokens'),
                 completionTokens: data_get($data, 'usage.output_tokens'),
@@ -132,7 +129,9 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
             meta: new Meta(
                 id: data_get($data, 'id'),
                 model: data_get($data, 'model'),
-            )
+            ),
+            toolCalls: $this->extractToolCalls($data),
+            additionalContent: Arr::whereNotNull($this->extractThinking($data)),
         );
     }
 
@@ -180,6 +179,28 @@ class AnthropicStructuredHandler extends BedrockStructuredHandler
             toolCalls: $this->tempResponse->toolCalls,
             toolResults: $toolResults,
         ));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected static function buildStructuredOutputConfig(Request $request, bool $useNative): ?array
+    {
+        $config = [];
+
+        if ($useNative) {
+            $config['format'] = [
+                'type' => 'json_schema',
+                'schema' => $request->schema()->toArray(),
+            ];
+        }
+
+        $effort = $request->providerOptions('thinking.effort');
+        if ($effort !== null) {
+            $config['effort'] = $effort;
+        }
+
+        return $config === [] ? null : $config;
     }
 
     protected function useNativeStructured(Request $request): bool

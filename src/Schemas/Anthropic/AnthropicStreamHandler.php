@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Clinically\PrismBedrock\Schemas\Anthropic;
 
-use Generator;
-use Illuminate\Http\Client\Response;
 use Clinically\PrismBedrock\Concerns\ParsesEventStream;
 use Clinically\PrismBedrock\Contracts\BedrockStreamHandler;
 use Clinically\PrismBedrock\Schemas\Anthropic\Maps\FinishReasonMap;
+use Generator;
+use Illuminate\Http\Client\Response;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
@@ -21,6 +21,9 @@ use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextCompleteEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\TextStartEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 use Prism\Prism\Streaming\StreamState;
@@ -180,9 +183,39 @@ class AnthropicStreamHandler extends BedrockStreamHandler
                 timestamp: time(),
                 messageId: $this->state->messageId()
             ),
+            'thinking' => $this->handleThinkingStart(),
             'tool_use' => $this->handleToolUseStart($contentBlock),
             default => null,
         };
+    }
+
+    protected function handleThinkingStart(): ThinkingStartEvent
+    {
+        $this->state->withReasoningId(EventID::generate());
+
+        return new ThinkingStartEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            reasoningId: $this->state->reasoningId(),
+        );
+    }
+
+    protected function handleThinkingDelta(array $delta): ?ThinkingEvent
+    {
+        $text = $delta['thinking'] ?? '';
+
+        if ($text === '') {
+            return null;
+        }
+
+        $this->state->appendThinking($text);
+
+        return new ThinkingEvent(
+            id: EventID::generate(),
+            timestamp: time(),
+            delta: $text,
+            reasoningId: $this->state->reasoningId(),
+        );
     }
 
     protected function handleToolUseStart(array $contentBlock): null
@@ -205,6 +238,7 @@ class AnthropicStreamHandler extends BedrockStreamHandler
 
         return match ([$this->state->currentBlockType(), $deltaType]) {
             ['text', 'text_delta'] => $this->handleTextDelta($delta),
+            ['thinking', 'thinking_delta'] => $this->handleThinkingDelta($delta),
             ['tool_use', 'input_json_delta'] => $this->handleToolInputDelta($delta),
             default => null,
         };
@@ -260,6 +294,11 @@ class AnthropicStreamHandler extends BedrockStreamHandler
     {
         $result = match ($this->state->currentBlockType()) {
             'text' => $this->handleTextComplete(),
+            'thinking' => new ThinkingCompleteEvent(
+                id: EventID::generate(),
+                timestamp: time(),
+                reasoningId: $this->state->reasoningId(),
+            ),
             'tool_use' => $this->handleToolUseComplete(),
             default => null,
         };
@@ -419,7 +458,12 @@ class AnthropicStreamHandler extends BedrockStreamHandler
             id: EventID::generate(),
             timestamp: time(),
             finishReason: $this->state->finishReason() ?? FinishReason::Stop,
-            usage: $this->state->usage()
+            usage: $this->state->usage(),
+            additionalContent: array_filter([
+                'thinking' => $this->state->thinkingSummaries() !== []
+                    ? implode('', $this->state->thinkingSummaries())
+                    : null,
+            ]),
         );
     }
 

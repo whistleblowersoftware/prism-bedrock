@@ -395,6 +395,101 @@ it('does not send citationConfig on documents when citations are not enabled', f
     });
 });
 
+it('sends adaptive thinking config via additionalModelRequestFields', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/generate-text-with-reasoning-content');
+
+    Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+        ->withProviderOptions([
+            'apiSchema' => BedrockSchema::Converse,
+            'thinking' => ['enabled' => true],
+        ])
+        ->withPrompt('Tell me a short story about a brave knight.')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $data = $request->data();
+
+        expect($data)->toHaveKey('additionalModelRequestFields');
+        expect($data['additionalModelRequestFields'])->toHaveKey('thinking');
+        expect($data['additionalModelRequestFields']['thinking']['type'])->toBe('adaptive');
+
+        return true;
+    });
+});
+
+it('sends thinking config with budget tokens and effort', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/generate-text-with-reasoning-content');
+
+    Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+        ->withProviderOptions([
+            'apiSchema' => BedrockSchema::Converse,
+            'thinking' => [
+                'enabled' => true,
+                'type' => 'enabled',
+                'budgetTokens' => 5000,
+                'effort' => 'low',
+            ],
+        ])
+        ->withPrompt('Tell me a short story about a brave knight.')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $fields = $request->data()['additionalModelRequestFields'];
+        $thinking = $fields['thinking'];
+
+        expect($thinking['type'])->toBe('enabled');
+        expect($thinking['budget_tokens'])->toBe(5000);
+        expect($thinking)->not()->toHaveKey('effort');
+
+        expect($fields['output_config'])->toBe(['effort' => 'low']);
+
+        return true;
+    });
+});
+
+it('merges thinking config with existing additionalModelRequestFields', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/generate-text-with-reasoning-content');
+
+    Prism::text()
+        ->using('bedrock', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+        ->withProviderOptions([
+            'apiSchema' => BedrockSchema::Converse,
+            'additionalModelRequestFields' => [
+                'anthropic_beta' => ['output-128k-2025-02-19'],
+            ],
+            'thinking' => ['enabled' => true],
+        ])
+        ->withPrompt('Tell me a short story about a brave knight.')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        $fields = $request->data()['additionalModelRequestFields'];
+
+        expect($fields)->toHaveKey('anthropic_beta');
+        expect($fields)->toHaveKey('thinking');
+        expect($fields['thinking']['type'])->toBe('adaptive');
+
+        return true;
+    });
+});
+
+it('does not send thinking config when not enabled', function (): void {
+    FixtureResponse::fakeResponseSequence('converse', 'converse/generate-text-with-a-prompt');
+
+    Prism::text()
+        ->using('bedrock', 'amazon.nova-micro-v1:0')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->data())->not()->toHaveKey('additionalModelRequestFields');
+
+        return true;
+    });
+});
+
 it('does not remove zero values from payload', function (): void {
     FixtureResponse::fakeResponseSequence('converse', 'converse/generate-text-with-a-prompt');
 
