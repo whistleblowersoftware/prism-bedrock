@@ -233,6 +233,29 @@ it('handles empty text deltas gracefully', function (): void {
     expect($textDeltas[0]->delta)->toBe('Hello');
 });
 
+it('accumulates completion tokens across message_start and message_delta', function (): void {
+    $handler = createAnthropicStreamHandler([
+        ['type' => 'message_start', 'message' => [
+            'id' => 'msg_accum',
+            'model' => 'claude-3-5-haiku-20241022',
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 7],
+        ]],
+        ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'text', 'text' => '']],
+        ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Hi']],
+        ['type' => 'content_block_stop', 'index' => 0],
+        ['type' => 'message_delta', 'delta' => ['stop_reason' => 'end_turn'], 'usage' => ['output_tokens' => 12]],
+        ['type' => 'message_stop'],
+    ]);
+
+    $events = collectAnthropicEvents($handler->handle(createAnthropicTextRequest()));
+
+    $streamEnd = array_values(array_filter($events, fn ($e): bool => $e instanceof StreamEndEvent));
+    expect($streamEnd)->toHaveCount(1);
+    // completion tokens should be 7 (from message_start) + 12 (from message_delta) = 19
+    expect($streamEnd[0]->usage->completionTokens)->toBe(19);
+    expect($streamEnd[0]->usage->promptTokens)->toBe(10);
+});
+
 it('ignores ping events', function (): void {
     $handler = createAnthropicStreamHandler([
         ['type' => 'ping'],
