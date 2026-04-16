@@ -397,13 +397,9 @@ class AnthropicStreamHandler extends BedrockStreamHandler
         $usageData = $event['usage'] ?? [];
 
         if ($usageData !== [] && $this->state->usage() instanceof Usage && isset($usageData['output_tokens'])) {
-            $currentUsage = $this->state->usage();
-
-            $this->state->withUsage(new Usage(
-                promptTokens: $currentUsage->promptTokens,
+            $this->state->addUsage(new Usage(
+                promptTokens: 0,
                 completionTokens: $usageData['output_tokens'],
-                cacheWriteInputTokens: $currentUsage->cacheWriteInputTokens,
-                cacheReadInputTokens: $currentUsage->cacheReadInputTokens
             ));
         }
 
